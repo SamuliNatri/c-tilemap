@@ -1,22 +1,49 @@
 #include <windows.h>
 #include <stdint.h>
 
+#define COLUMNS 10
+#define ROWS 10
+
 typedef uint32_t u32;
 
 int running = 1;
 int client_width = 640;
 int client_height = 640;
 
-int player_x = 0;
-int player_y = 0;
-int tile_size = 25;
+int player_x;
+int player_y;
+
+int moving_right;
+int moving_left;
+int moving_up;
+int moving_down;
+
+int tile_size = 64;
 
 void* memory;
 BITMAPINFO bitmap_info;
 
+int level[COLUMNS * ROWS] = {
+    1,1,0,0,0,0,0,0,0,0,
+    0,1,1,0,0,0,0,0,0,0,
+    0,0,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,
+    0,0,0,0,0,2,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,0
+};
+
+void draw_rectangle_tile(int rec_x,
+                         int rec_y,
+                         int rec_width,
+                         int rec_height,
+                         u32 color);
+
 void clear_screen(u32 color)
 {
-    
     u32 *pixel = (u32 *)memory; 
     
     for(int pixel_number = 0;
@@ -24,6 +51,57 @@ void clear_screen(u32 color)
         ++pixel_number)
     {
         *pixel++ = color;
+    }
+}
+
+void draw_level(int *level)
+{
+    for(int y = 0;
+        y < ROWS;
+        ++y)
+    {
+        for(int x = 0;
+            x < COLUMNS;
+            ++x)
+        {
+            
+            int tile_type = level[(ROWS - 1 - y) * COLUMNS + x];
+            
+            if(tile_type != 0)
+            {
+                u32 color = 0x222222;
+                
+                if(tile_type == 2) color = 0x444444;
+                
+                draw_rectangle_tile(x, y, 
+                                    tile_size, tile_size, 
+                                    color);
+            }
+        }
+    }
+}
+
+void draw_rectangle_tile(int rec_x,
+                         int rec_y,
+                         int rec_width,
+                         int rec_height,
+                         u32 color)
+{
+    u32 *pixel = (u32 *)memory;
+    pixel += (rec_y * client_width * tile_size) + (rec_x * tile_size); 
+    
+    for(int y = 0;
+        y < rec_height;
+        ++y)
+    {
+        for(int x = 0;
+            x < rec_width;
+            ++x)
+        {
+            *pixel++ = color;
+        }
+        
+        pixel += client_width - rec_width;
     }
 }
 
@@ -51,6 +129,40 @@ void draw_rectangle(int rec_x,
     }
 }
 
+int player_can_move(x, y)
+{
+    int result = 1;
+    
+    if(x < 0 | y < 0 | x >= COLUMNS | y >= ROWS) result = 0;
+    
+    int tile_type = level[(ROWS - 1 - y) * COLUMNS + x];
+    
+    if(tile_type == 1) result = 0;
+    
+    return result;
+}
+
+void move_player()
+{
+    int new_x = player_x;
+    int new_y = player_y;
+    
+    if(moving_right) ++new_x;
+    if(moving_left) --new_x;
+    if(moving_up) ++new_y;
+    if(moving_down) --new_y;
+    
+    if(player_can_move(new_x, new_y))
+    {
+        player_x = new_x;
+        player_y = new_y;
+    }
+    
+    moving_right = 0;
+    moving_left = 0;
+    moving_up = 0;
+    moving_down = 0;
+}
 
 LRESULT CALLBACK 
 WindowProc(HWND window, 
@@ -72,22 +184,22 @@ WindowProc(HWND window,
             {
                 case VK_RIGHT:
                 {
-                    player_x += tile_size;
+                    moving_right = 1;
                 } break;
                 
                 case VK_LEFT:
                 {
-                    player_x -= tile_size;
+                    moving_left = 1;
                 } break;
                 
                 case VK_UP:
                 {
-                    player_y += tile_size;
+                    moving_up = 1;
                 } break;
                 
                 case VK_DOWN:
                 {
-                    player_y -= tile_size;
+                    moving_down = 1;
                 } break;
             }
         } break;
@@ -184,15 +296,20 @@ wWinMain(HINSTANCE instance,
         
         clear_screen(0x111111);
         
-        draw_rectangle(100, 100, 50, 50, 0x222222);
-        draw_rectangle(150, 150, 25, 25, 0x333333);
-        draw_rectangle(175, 175, 15, 15, 0x444444);
+        draw_level(level);
         
-        draw_rectangle(player_x, 
-                       player_y, 
-                       tile_size, 
-                       tile_size, 
-                       0xff00f7);
+        move_player();
+        /*
+                        draw_rectangle(100, 100, 50, 50, 0x222222);
+                        draw_rectangle(150, 150, 25, 25, 0x333333);
+                        draw_rectangle(175, 175, 15, 15, 0x444444);
+                        */
+        
+        draw_rectangle_tile(player_x, 
+                            player_y, 
+                            tile_size, 
+                            tile_size, 
+                            0xff00f7);
         
         StretchDIBits(hdc,
                       0,
