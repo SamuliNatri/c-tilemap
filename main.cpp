@@ -129,7 +129,7 @@ void draw_rectangle(int rec_x,
     }
 }
 
-int player_can_move(x, y)
+int player_can_move(int x, int y)
 {
     int result = 1;
     
